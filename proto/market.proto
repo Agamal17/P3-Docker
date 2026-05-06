@@ -1,0 +1,180 @@
+syntax = "proto3";
+
+package marketplace;
+
+// Centralized Controller
+service MarketplaceController {
+  // Health check endpoint for monitoring service node health
+  rpc Heartbeat(Ping) returns (Pong);
+
+  // Add a new item listing
+  rpc CreateItem(CreateItemRequest) returns (ActionResponse);
+  
+  // Retrieve current state of a specific item
+  rpc GetItem(GetItemRequest) returns (MarketplaceItem);
+  
+  // Search items by keyword, category, or filter
+  rpc SearchItems(SearchRequest) returns (SearchResponse);
+  
+  // Update item metadata (description, quantity, status)
+  rpc UpdateItem(UpdateItemRequest) returns (ActionResponse);
+  
+  // Submit a bid on an auction-enabled item
+  rpc PlaceBid(BidRequest) returns (ActionResponse);
+
+  // Persistent Auction Participation
+  // Join an auction and receive a stream of updates whenever the state changes
+  rpc JoinAuction(AuctionRequest) returns (stream AuctionEvent);
+
+  // getting the primary storage node
+  rpc GetPrimaryStorage(GetPrimaryStorageRequest) returns (GetPrimaryStorageResponse);
+}
+
+// Service Layer
+service MarketplaceService {  
+  // Add a new item listing
+  rpc CreateItem(CreateItemRequest) returns (ActionResponse);
+
+  // Retrieve current state of a specific item
+  rpc GetItem(GetItemRequest) returns (MarketplaceItem);
+  
+  // Search items by keyword, category, or filter
+  rpc SearchItems(SearchRequest) returns (SearchResponse);
+  
+  // Update item metadata (description, quantity, status)
+  rpc UpdateItem(UpdateItemRequest) returns (ActionResponse);
+  
+  // Submit a bid on an auction-enabled item
+  rpc PlaceBid(BidRequest) returns (ActionResponse);
+
+  // Persistent Auction Participation
+  // Join an auction and receive a stream of updates whenever the state changes
+  rpc JoinAuction(AuctionRequest) returns (stream AuctionEvent);
+}
+
+// Storage Layer
+service MarketplaceStorage {
+  // Replication endpoint for synchronizing replicas with primary storage state changes
+  rpc ReplicateState(ReplicationRequest) returns (stream MarketplaceItem);
+
+  // Add a new item listing
+  rpc CreateItem(CreateItemRequest) returns (ActionResponse);
+  
+  // Retrieve current state of a specific item
+  rpc GetItem(GetItemRequest) returns (MarketplaceItem);
+
+  // Delete an item listing (used for rollback during replication failure)
+  rpc DeleteItem(DeleteItemRequest) returns (ActionResponse);
+  
+  // Search items by keyword, category, or filter
+  rpc SearchItems(SearchRequest) returns (SearchResponse);
+  
+  // Update item metadata (description, quantity, status)
+  rpc UpdateItem(UpdateItemRequest) returns (ActionResponse);
+  
+  // Submit a bid on an auction-enabled item
+  rpc PlaceBid(BidRequest) returns (ActionResponse);
+
+  // Persistent Auction Participation
+  // Join an auction and receive a stream of updates whenever the state changes
+  rpc JoinAuction(AuctionRequest) returns (stream AuctionEvent);
+}
+
+//  3.1 Required Item Schema 
+message MarketplaceItem {
+  string item_id = 1;
+  string seller_id = 2;
+  string title = 3;
+  string category = 4;
+  string description = 5;
+  double starting_price = 6;
+  double current_price = 7;
+  int32 quantity = 8;
+  string status = 9; // "AVAILABLE", "SOLD", "AUCTION_ACTIVE"
+  uint64 version = 10; // version or sequence_number for consistency
+}
+
+//  Message Definitions 
+message CreateItemRequest {
+  MarketplaceItem item = 1;
+  string primary_store_id = 2; // Identifier for the primary store handling this item
+}
+
+message GetItemRequest {
+  string item_id = 1;
+}
+
+message SearchRequest {
+  string query = 1; // keyword
+  string category = 2; // optional filter
+}
+
+message SearchResponse {
+  repeated MarketplaceItem items = 1;
+}
+
+message UpdateItemRequest {
+  string item_id = 1;
+  // Fields to update
+  optional string description = 2;
+  optional int32 quantity = 3;
+  optional string status = 4;
+  uint64 expected_version = 5; // For optimistic concurrency control
+  string primary_store_id = 6; // Identifier for the primary store handling this item
+}
+
+message BidRequest {
+  string item_id = 1;
+  string bidder_id = 2;
+  double bid_amount = 3;
+  string primary_store_id = 4; // Identifier for the primary store handling this item
+}
+
+message ActionResponse {
+  bool success = 1;
+  string message = 2;
+  uint64 new_version = 3;
+}
+
+message AuctionRequest {
+  string item_id = 1;
+  string user_id = 2;
+}
+
+message AuctionEvent {
+  enum EventType {
+    NEW_BID = 0;
+    STATUS_CHANGE = 1;
+    AUCTION_CLOSED = 2;
+  }
+  EventType type = 1;
+  MarketplaceItem item_snapshot = 2;
+  string event_description = 3;
+}
+
+// Replication request to synchronize the replica with primary storage state changes
+message ReplicationRequest {}
+
+message Ping {
+  string node_id = 1;
+  enum NodeType {
+    SERVICE = 0;
+    STORAGE = 1;
+  }
+  NodeType type = 2;
+}
+
+message Pong {
+  bool healthy = 1;
+}
+
+message GetPrimaryStorageRequest {}
+
+message GetPrimaryStorageResponse {
+  string primary_storage_target = 1;
+}
+
+message DeleteItemRequest {
+  string item_id = 1;
+  uint64 version = 2; // version for concurrency control during deletion
+}

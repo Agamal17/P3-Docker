@@ -1,0 +1,27 @@
+name: marketplace-compose
+
+services:
+  # Centralized Controller
+  # Acts as the entry point and tracks node membership
+  controller:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    image: marketplace
+    container_name: controller
+    hostname: controller
+    command: ["python", "-u", "controller/controller.py"]
+    ports:
+      - "50050:50050" # Client-facing port
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - marketplace_net
+    working_dir: 
+      /app
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+networks:
+  marketplace_net:
+    name: marketplace_net
