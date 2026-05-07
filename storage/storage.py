@@ -208,9 +208,15 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
         with self.DATA_LOCK:
             df = self.DATA_DF.copy()
         if q:
+            if "q" not in df.columns:
+                return market_pb2.SearchResponse(items=[])
+
             mask = df["title"].fillna("").str.lower().str.contains(q) | df["description"].fillna("").str.lower().str.contains(q)
             df = df[mask]
         if cat:
+            if "category" not in df.columns:
+                return market_pb2.SearchResponse(items=[])
+                
             mask = df["category"].fillna("").str.lower() == cat
             df = df[mask]
         for item_id, row in df.iterrows():
@@ -273,7 +279,7 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
         print(f"{self.node_id} PlaceBid {item_id} bid={request.bid_amount} by {request.bidder_id}", flush=True)
         return market_pb2.ActionResponse(success=True, message="bid accepted", new_version=new_version)
 
-    def AuctionPoll(self, request, context):
+    def JoinAuction(self, request, context):
         item_id = request.item_id
         last_version = None
         while True:
