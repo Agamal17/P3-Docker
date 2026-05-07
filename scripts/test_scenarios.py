@@ -87,12 +87,21 @@ def place_bid(stub, key, bidder_id, amount):
 def main():
     key = 'test123'
     channel = grpc.insecure_channel(TARGET)
-    try:
-        grpc.channel_ready_future(channel).result(timeout=5)
-    except Exception as e:
-        print("Channel not ready to", TARGET, ":", e)
+    # Don't block on channel readiness; attempt RPCs and show RPC errors.
+    stub = None
+    for stub_name in (
+        'MarketplaceControllerStub',
+        'StorageServiceStub',
+        'MarketplaceServiceStub',
+        'ControllerServiceStub',
+    ):
+        if hasattr(market_pb2_grpc, stub_name):
+            stub = getattr(market_pb2_grpc, stub_name)(channel)
+            print("Using stub:", stub_name)
+            break
+    if stub is None:
+        print("No compatible stub found in market_pb2_grpc; aborting")
         return
-    stub = market_pb2_grpc.MarketplaceControllerStub(channel)
 
     print("=== CreateItem ===")
     create_item(stub, key)

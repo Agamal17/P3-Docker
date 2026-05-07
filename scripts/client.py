@@ -89,7 +89,7 @@ def main():
     # client.occasional_writes(count=1)
 
     # # 2. Read-Heavy
-    # client.read_heavy_scenario(duration_sec=5)
+    client.read_heavy_scenario(duration_sec=5)
 
     # # 3. Active Auction
     # client.active_auction("item_123")
