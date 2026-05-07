@@ -154,6 +154,7 @@ class MarketplaceController(market_pb2_grpc.MarketplaceControllerServicer):
                     print(f"Node failure detected: {node_id}")
                     self._handle_failure(node_id)
 
+                print(f"Current request count: {self.request_count}, Active service nodes: {len([n for n in self.nodes.values() if n['type'] == market_pb2.Ping.SERVICE and n['stub'] is not None])}")
                 if self.request_count > 10 * len([n for n in self.nodes.values() if n["type"] == market_pb2.Ping.SERVICE]):  #threshold for scaling up
                     print("High load detected, consider scaling up service nodes")
                     create_service_node(len(self.nodes), [node_id for node_id, v in self.nodes.items() if v["type"] == market_pb2.Ping.STORAGE])

@@ -29,10 +29,12 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
         self.controller_url = os.environ.get("CONTROLLER_ADDR", "controller:50050")
         storage_env = os.environ.get("STORAGE_TARGETS", "")
         self.storage_nodes = [s for s in storage_env.split(",") if s]
+        print(self.storage_nodes)
 
         # Use a pandas DataFrame for item storage. This is an in-memory DataFrame
         # representing the storage layer; in a production deployment this would be
         # backed by a durable, replicated store.
+
         DF_COLUMNS = [
             "item_id",
             "seller_id",
@@ -45,7 +47,6 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
             "status",
             "version",
         ]
-
         self.DATA_DF = pd.DataFrame(columns=DF_COLUMNS).set_index("item_id")
         self.DATA_LOCK = threading.Lock()
 
@@ -117,8 +118,7 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
     def ReplicateState(self, request, context):
         """Handle replication requests to primary storage to synchronize replicas"""
         print(f"[{self.node_id}] Received replication request from requester")
-        items_list = self.DATA_DF.to_dict('records')
-        for item_id, row in items_list:
+        for item_id, row in self.DATA_DF.iterrows():
             yield _row_to_item(item_id, row)
 
     def propagate_to_replicas(self, item: market_pb2.MarketplaceItem, version: int):
@@ -149,6 +149,7 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
         return market_pb2.ActionResponse(success=True, message="updated", new_version=version)
 
     def CreateItem(self, request, context):
+        print(f"{self.node_id} Received CreateItem request for {request.item.item_id} v{request.item.version}", flush=True)
         item = request.item
         with self.DATA_LOCK:
             if item.item_id in self.DATA_DF.index:
@@ -166,11 +167,13 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
                 "status": item.status,
                 "version": version,
             }
-            self.DATA_DF.loc[item.item_id] = row
-        
-        # Determine if this node is the primary for the incoming request.
+            new_row_df = pd.DataFrame([row], index=[item.item_id])
+            self.DATA_DF = pd.concat([self.DATA_DF, new_row_df])
+
+        # Only propagate if this node is the primary store for the item
+        print(f"{self.node_id}:{NODE_PORT}", request.primary_store_id)
         if f"{self.node_id}:{NODE_PORT}" == request.primary_store_id:
-            # Only propagate if this node is the primary store for the item
+            print("propagating to replicas")
             res = self.propagate_to_replicas(item, version)
             if not res:
                 self.DATA_DF.drop(item.item_id, inplace=True)  # rollback local write
@@ -181,8 +184,11 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
     def GetItem(self, request, context):
         item_id = request.item_id
         with self.DATA_LOCK:
+            print("DEBUG 1")
             if item_id not in self.DATA_DF.index:
+                print("DEBUG 2")
                 return market_pb2.MarketplaceItem()
+            print("DEBUG 3")
             row = self.DATA_DF.loc[item_id]
             return _row_to_item(item_id, row)
         
@@ -207,7 +213,7 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
         with self.DATA_LOCK:
             df = self.DATA_DF.copy()
         if q:
-            if "q" not in df.columns:
+            if "title" not in df.columns:
                 return market_pb2.SearchResponse(items=[])
 
             mask = df["title"].fillna("").str.lower().str.contains(q) | df["description"].fillna("").str.lower().str.contains(q)

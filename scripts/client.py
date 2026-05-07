@@ -69,19 +69,21 @@ def burst_demand(client_count=20):
     
     def task():
         client = MarketplaceClient()
-        client.stub.SearchItems(market_pb2.SearchRequest(query="", category="a"))
+        client.stub.GetItem(market_pb2.GetItemRequest(item_id="item_123"))
     
-    with futures.ThreadPoolExecutor(max_workers=client_count) as executor:
-        # Launching many requests at the exact same time
-        for _ in range(client_count):
-            executor.submit(task)
+    threads = []
+    for _ in range(client_count):
+        t = threading.Thread(target=task)
+        t.start()
+        threads.append(t)
+
+    for t in threads:
+        t.join()
+
+    
 
 def main():
     client = MarketplaceClient()
-    res_stream = client.stub.JoinAuction(market_pb2.AuctionRequest(item_id="item_721", user_id="bidder_456"))
-    
-    for event in res_stream:
-        print(f"Received auction event: {event}")
 
     # # 1. Occasional Writes
     # client.occasional_writes(count=1)
@@ -92,8 +94,8 @@ def main():
     # # 3. Active Auction
     # client.active_auction("item_123")
 
-    # # 4. Burst Demand (Stress test for your autoscaler!)
-    # burst_demand(client_count=30)
+    # 4. Burst Demand (Stress test for your autoscaler!)
+    burst_demand(client_count=100)
 
 if __name__ == "__main__":
     main()
