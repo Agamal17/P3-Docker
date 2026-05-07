@@ -27,7 +27,8 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
     def __init__(self):
         self.node_id = os.environ.get("HOSTNAME", "unknown-storage-node")
         self.controller_url = os.environ.get("CONTROLLER_ADDR", "controller:50050")
-        self.storage_nodes = os.environ.get("STORAGE_NODES", "").split(",")  # comma-separated list of other storage nodes for replication
+        storage_env = os.environ.get("STORAGE_NODES") or os.environ.get("STORAGE_TARGETS") or ""
+        self.storage_nodes = [s for s in storage_env.split(",") if s]
 
         # Use a pandas DataFrame for item storage. This is an in-memory DataFrame
         # representing the storage layer; in a production deployment this would be
@@ -116,8 +117,7 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
     def ReplicateState(self, request, context):
         """Handle replication requests to primary storage to synchronize replicas"""
         print(f"[{self.node_id}] Received replication request from requester")
-        items_list = self.DATA_DF.to_dict('records')
-        for item_id, row in items_list:
+        for item_id, row in self.DATA_DF.iterrows():
             yield _row_to_item(item_id, row)
 
     def propagate_to_replicas(self, item: market_pb2.MarketplaceItem, version: int):
@@ -129,7 +129,7 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
             try:
                 with grpc.insecure_channel(target) as channel:
                     stub = market_pb2_grpc.MarketplaceStorageStub(channel)
-                    request = market_pb2.CreateItemRequest(item=item, version=version)
+                    request = market_pb2.CreateItemRequest(item=item)
                     stub.CreateItem(request)
                     written_replicas.append(target)
             except grpc.RpcError as e:
@@ -167,7 +167,10 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
             }
             self.DATA_DF.loc[item.item_id] = row
         
-        if self.node_id == request.primary_store_id:
+        # Determine if this node is the primary for the incoming request.
+        primary_store = getattr(request, 'primary_store_id', '') or ''
+        primary_host = primary_store.split(':')[0] if primary_store else ''
+        if primary_host == self.node_id or primary_store == f"{self.node_id}:{NODE_PORT}":
             # Only propagate if this node is the primary store for the item
             res = self.propagate_to_replicas(item, version)
             if not res:

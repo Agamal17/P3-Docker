@@ -1,0 +1,8 @@
+grpcio
+grpcio-tools
+protobuf
+prometheus-client
+pandas
+grpcio-health-checking
+docker
+pytest
