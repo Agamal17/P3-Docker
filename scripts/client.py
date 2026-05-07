@@ -78,13 +78,13 @@ def burst_demand(client_count=20):
 
 def main():
     client = MarketplaceClient()
-    res_stream = client.stub.JoinAuction(market_pb2.AuctionRequest(item_id="item_904", user_id="bidder_456"))
+    res_stream = client.stub.JoinAuction(market_pb2.AuctionRequest(item_id="item_721", user_id="bidder_456"))
     
     for event in res_stream:
         print(f"Received auction event: {event}")
 
     # # 1. Occasional Writes
-    # client.occasional_writes(count=3)
+    # client.occasional_writes(count=1)
 
     # # 2. Read-Heavy
     # client.read_heavy_scenario(duration_sec=5)
