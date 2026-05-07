@@ -97,7 +97,7 @@ message MarketplaceItem {
 //  Message Definitions 
 message CreateItemRequest {
   MarketplaceItem item = 1;
-  string primary_store_id = 2; // Identifier for the primary store handling this item
+  optional string primary_store_id = 2; // Identifier for the primary store handling this item
 }
 
 message GetItemRequest {
@@ -120,14 +120,14 @@ message UpdateItemRequest {
   optional int32 quantity = 3;
   optional string status = 4;
   uint64 expected_version = 5; // For optimistic concurrency control
-  string primary_store_id = 6; // Identifier for the primary store handling this item
+  optional string primary_store_id = 6; // Identifier for the primary store handling this item
 }
 
 message BidRequest {
   string item_id = 1;
   string bidder_id = 2;
   double bid_amount = 3;
-  string primary_store_id = 4; // Identifier for the primary store handling this item
+  optional string primary_store_id = 4; // Identifier for the primary store handling this item
 }
 
 message ActionResponse {
@@ -157,11 +157,12 @@ message ReplicationRequest {}
 
 message Ping {
   string node_id = 1;
+  string node_address = 2; // Address of the node sending the heartbeat
   enum NodeType {
     SERVICE = 0;
     STORAGE = 1;
   }
-  NodeType type = 2;
+  NodeType type = 3;
 }
 
 message Pong {

@@ -1,4 +1,4 @@
-from random import random
+import random
 import grpc
 from concurrent import futures
 import time
@@ -67,7 +67,8 @@ class MarketplaceController(market_pb2_grpc.MarketplaceControllerServicer):
             return market_pb2.ActionResponse(success=False, message="No service nodes available")
         
         # Route the request to the Service Node
-        return service_node["stub"].CreateItem(request)
+        request.primary_store_id = f"{self.primary_storage_id}:{NODE_PORT}"  # Attach primary storage info for the service node to route to storage
+        return service_node[1]["stub"].CreateItem(request)
 
     @monitor_request
     def GetItem(self, request, context):
@@ -77,7 +78,7 @@ class MarketplaceController(market_pb2_grpc.MarketplaceControllerServicer):
             context.set_code(grpc.StatusCode.UNAVAILABLE)
             return market_pb2.MarketplaceItem()
         
-        return service_node["stub"].GetItem(request)
+        return service_node[1]["stub"].GetItem(request)
     
     @monitor_request
     def SearchItems(self, request, context):
@@ -85,7 +86,7 @@ class MarketplaceController(market_pb2_grpc.MarketplaceControllerServicer):
         if not service_node:
             context.set_code(grpc.StatusCode.UNAVAILABLE)
             return market_pb2.SearchResponse()
-        return service_node["stub"].SearchItems(request)
+        return service_node[1]["stub"].SearchItems(request)
     
     @monitor_request
     def UpdateItem(self, request, context):
@@ -93,7 +94,9 @@ class MarketplaceController(market_pb2_grpc.MarketplaceControllerServicer):
         if not service_node:
             context.set_code(grpc.StatusCode.UNAVAILABLE)
             return market_pb2.ActionResponse(success=False, message="No service nodes available")
-        return service_node["stub"].UpdateItem(request)
+
+        request.primary_store_id = f"{self.primary_storage_id}:{NODE_PORT}"  # Attach primary storage info for the service node to route to storage
+        return service_node[1]["stub"].UpdateItem(request)
     
     @monitor_request
     def PlaceBid(self, request, context):
@@ -101,7 +104,9 @@ class MarketplaceController(market_pb2_grpc.MarketplaceControllerServicer):
         if not service_node:
             context.set_code(grpc.StatusCode.UNAVAILABLE)
             return market_pb2.ActionResponse(success=False, message="No service nodes available")
-        return service_node["stub"].PlaceBid(request)
+        
+        request.primary_store_id = f"{self.primary_storage_id}:{NODE_PORT}"  # Attach primary storage info for the service node to route to storage
+        return service_node[1]["stub"].PlaceBid(request)
     
     @monitor_request
     def JoinAuction(self, request, context):
@@ -109,7 +114,7 @@ class MarketplaceController(market_pb2_grpc.MarketplaceControllerServicer):
         if not service_node:
             context.set_code(grpc.StatusCode.UNAVAILABLE)
             return market_pb2.ActionResponse(success=False, message="No service nodes available")
-        auction_stream = service_node["stub"].JoinAuction(request)
+        auction_stream = service_node[1]["stub"].JoinAuction(request)
         for event in auction_stream:
             yield event
 
@@ -121,7 +126,7 @@ class MarketplaceController(market_pb2_grpc.MarketplaceControllerServicer):
             # Register new nodes on the fly
             if node_id not in self.nodes:
                 self.nodes[node_id] = {"type": request.type}
-                target = context.peer()  # Get the address of the node sending the heartbeat
+                target = request.node_address
                 channel = grpc.insecure_channel(target)
                 if request.type == market_pb2.Ping.SERVICE:
                     stub = market_pb2_grpc.MarketplaceServiceStub(channel)
@@ -168,7 +173,7 @@ class MarketplaceController(market_pb2_grpc.MarketplaceControllerServicer):
         del self.nodes[node_id]
 
         # Replica Replenishment: If a storage node dies, create a new one to maintain replication factor
-        if len([n for n in self.nodes.values() if n["type"] == market_pb2.Ping.StORAGE]) < NUMBER_OF_STORAGE_NODES:
+        if len([n for n in self.nodes.values() if n["type"] == market_pb2.Ping.STORAGE]) < NUMBER_OF_STORAGE_NODES:
             print("Storage node count below threshold, creating new storage node")
             create_storage_node(len(self.nodes), [node_id for node_id, v in self.nodes.items() if v["type"] == market_pb2.Ping.STORAGE])
 

@@ -128,7 +128,7 @@ class ReplicationRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class Ping(_message.Message):
-    __slots__ = ("node_id", "type")
+    __slots__ = ("node_id", "node_address", "type")
     class NodeType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         SERVICE: _ClassVar[Ping.NodeType]
@@ -136,10 +136,12 @@ class Ping(_message.Message):
     SERVICE: Ping.NodeType
     STORAGE: Ping.NodeType
     NODE_ID_FIELD_NUMBER: _ClassVar[int]
+    NODE_ADDRESS_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     node_id: str
+    node_address: str
     type: Ping.NodeType
-    def __init__(self, node_id: _Optional[str] = ..., type: _Optional[_Union[Ping.NodeType, str]] = ...) -> None: ...
+    def __init__(self, node_id: _Optional[str] = ..., node_address: _Optional[str] = ..., type: _Optional[_Union[Ping.NodeType, str]] = ...) -> None: ...
 
 class Pong(_message.Message):
     __slots__ = ("healthy",)

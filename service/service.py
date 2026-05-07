@@ -5,6 +5,7 @@ import threading
 import grpc
 import market_pb2
 import market_pb2_grpc
+from utils.config import NODE_PORT
 
 
 class MarketplaceService(market_pb2_grpc.MarketplaceServiceServicer):
@@ -24,7 +25,8 @@ class MarketplaceService(market_pb2_grpc.MarketplaceServiceServicer):
                 try:
                     # Construct the Ping message
                     ping = market_pb2.Ping(
-                        node_id=self.node_id, 
+                        node_id=self.node_id,
+                        node_address=f"{self.node_id}:{NODE_PORT}",
                         type=market_pb2.Ping.SERVICE
                     )
                     stub.Heartbeat(ping)
@@ -40,7 +42,7 @@ class MarketplaceService(market_pb2_grpc.MarketplaceServiceServicer):
         return random.choice(self.storage_targets)
 
     def CreateItem(self, request, context):
-        target = self._get_random_storage_node()
+        target = request.primary_store_id
         with grpc.insecure_channel(target) as channel:
             stub = market_pb2_grpc.MarketplaceStorageStub(channel)
             try:

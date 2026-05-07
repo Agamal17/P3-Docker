@@ -59,6 +59,7 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
                     # Construct the Ping message
                     ping = market_pb2.Ping(
                         node_id=self.node_id, 
+                        node_address=f"{self.node_id}:{NODE_PORT}",
                         type=market_pb2.Ping.STORAGE
                     )
                     stub.Heartbeat(ping)
@@ -173,7 +174,7 @@ class StorageService(market_pb2_grpc.MarketplaceStorageServicer):
                 self.DATA_DF.drop(item.item_id, inplace=True)  # rollback local write
                 return market_pb2.ActionResponse(success=False, message="failed to propagate", new_version=version)
 
-        return res
+        return market_pb2.ActionResponse(success=True, message="created", new_version=version)
 
     def GetItem(self, request, context):
         item_id = request.item_id
