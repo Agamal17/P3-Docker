@@ -95,7 +95,7 @@ def main():
     # client.active_auction("item_123")
 
     # 4. Burst Demand (Stress test for your autoscaler!)
-    burst_demand(client_count=100)
+    # burst_demand(client_count=100)
 
 if __name__ == "__main__":
     main()
