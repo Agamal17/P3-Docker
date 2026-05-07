@@ -177,7 +177,9 @@ class MarketplaceController(market_pb2_grpc.MarketplaceControllerServicer):
         # Replica Replenishment: If a storage node dies, create a new one to maintain replication factor
         if len([n for n in self.nodes.values() if n["type"] == market_pb2.Ping.STORAGE]) < NUMBER_OF_STORAGE_NODES:
             print("Storage node count below threshold, creating new storage node")
-            create_storage_node(len(self.nodes), [node_id for node_id, v in self.nodes.items() if v["type"] == market_pb2.Ping.STORAGE])
+            for i in range(NUMBER_OF_STORAGE_NODES):
+                if f"storage-{i}:{NODE_PORT}" not in self.nodes:
+                    create_storage_node(i, [node_id for node_id, v in self.nodes.items() if v["type"] == market_pb2.Ping.STORAGE])
             # wait a bit for the new node to register before we can route to it
             threading.Event().wait(5)
 
